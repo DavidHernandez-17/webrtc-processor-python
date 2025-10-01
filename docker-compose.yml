@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  webrtc-processor:
+    build: .
+    container_name: webrtc-processor
+    volumes:
+      - ./app:/app/app
+    stdin_open: true
+    tty: true

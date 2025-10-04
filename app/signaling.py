@@ -1,7 +1,7 @@
 import socketio
 from .rtc import handle_offer, handle_ice
 
-sio = socketio.Client()
+sio = socketio.AsyncClient()
 
 def register_signaling_events():
     @sio.on("offer")
@@ -11,3 +11,7 @@ def register_signaling_events():
     @sio.on("ice-candidate")
     async def on_ice(data):
         await handle_ice(data)
+
+    @sio.event
+    async def connect():
+        print("✅ Conectado al servidor de señalización")

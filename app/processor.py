@@ -2,9 +2,10 @@ import cv2
 from aiortc import VideoStreamTrack
 from vosk import Model, KaldiRecognizer
 import os
-from aiortc.mediastreams import MediaStreamTrack
+from aiortc.mediastreams import MediaStreamTrack, MediaStreamError
 import json
 import time
+import asyncio
 
 MODEL_PATH = "/usr/local/lib/python3.11/site-packages/vosk_model/vosk-model-small-es-0.42"
 
@@ -33,9 +34,22 @@ class VideoProcessorTrack(VideoStreamTrack):
         print("📹 Stream de video processor track")
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
+        
+        self.count += 1
+        h, w, _ = img.shape
+        
+        cv2.circle(
+            img, 
+            (w // 2, h // 2),  # Centro del frame
+            radius=10, 
+            color=(0, 255, 0), # Verde (BGR)
+            thickness=-1       # Relleno completo
+        )
+        
+        print(f"📹 Procesando Frame #{self.count} | Video activo")
 
         self._last_frame = frame 
-        return frame
+        return frame.from_ndarray(img, format="bgr24")
 
     async def capture_frame(self):
         """Captura el frame más reciente y lo guarda."""
@@ -61,46 +75,62 @@ class AudioProcessorTrack(MediaStreamTrack):
     
     def __init__(self, track, video_processor, sio_server):
         super().__init__()
-        self.track = track # El track de audio original de aiortc
-        self.video_processor = video_processor # Referencia al procesador de video
-        self.sio = sio_server # Referencia al servidor SocketIO para enviar comandos
+        self.track = track
+        self.video_processor = video_processor
+        self.sio = sio_server
+        self.last_pts = None
+        
+        self.stop_event = asyncio.Event()
         
         # Inicializar el reconocedor de Vosk
         self.recognizer = KaldiRecognizer(VOSK_MODEL, SAMPLE_RATE)
+        asyncio.ensure_future(self._run_loop())
 
-    async def recv(self):
-        # 1. Recibir el frame de audio (chunk)
-        frame = await self.track.recv()
+    async def _run_loop(self):
+        print("🎧 AudioProcessorTrack: Iniciando loop de consumo de audio para Vosk.")
+        audio_buffer = bytearray()
         
-        # 2. Convertir a formato de Vosk (16kHz mono)
-        # aiortc usualmente entrega a 48kHz. Debemos convertirlo.
-        # Aquí, por simplicidad, asumimos que el track ya viene en mono 16kHz,
-        # pero en producción, puede necesitar resampleo (usando scipy, librosa, etc.).
-        # Para aiortc + Vosk, a menudo se necesita forzar el formato adecuado.
-        
-        # Si el audio no viene en 16k, Vosk espera 16k.
-        # Por ahora, simplemente tomaremos los bytes.
-        
-        chunk = frame.to_ndarray(format="s16")
-        
-        # El reconocedor de Vosk espera bytes
-        audio_data = chunk.tobytes()
-
-        # 3. Procesar el chunk de audio con Vosk
-        if self.recognizer.AcceptWaveform(audio_data):
-            result = json.loads(self.recognizer.Result())
-            text = result.get('text', '').lower().strip()
-            
-            if text:
-                print(f"🗣️ Comando Final Recibido: {text}")
-                await self._process_command(text)
-        else:
-            partial_result = json.loads(self.recognizer.PartialResult())
-            partial_text = partial_result.get('partial', '').lower().strip()
-            if partial_text:
-                print(f"🗣️ Parcial: {partial_text}")
+        while not self.stop_event.is_set():
+            try:
+                frame = await self.track.recv()
                 
-        return frame
+                if frame.pts == self.last_pts:
+                    continue
+                self.last_pts = frame.pts
+                
+                chunk = frame.to_ndarray(format="s16")
+                audio_data = chunk.tobytes()
+                
+                if isinstance(audio_data, bytearray):
+                    audio_data = bytes(audio_data)
+                
+                audio_buffer.extend(audio_data)
+
+                if len(audio_buffer) > 16000 * 2 * 0.5:
+                    buffer_to_process = bytes(audio_buffer)
+                    if self.recognizer.AcceptWaveform(buffer_to_process):
+                        result = json.loads(self.recognizer.Result())
+                        text = result.get('text', '').lower().strip()
+                        if text:
+                            print(f"🗣️ Comando Final Recibido: {text}")
+                            await self._process_command(text)
+                        audio_buffer.clear()
+                    else:
+                        partial = json.loads(self.recognizer.PartialResult())
+                        partial_text = partial.get('partial', '').lower().strip()
+                        if partial_text:
+                            print(f"🗣️ Parcial: {partial_text}")
+
+            except MediaStreamError:
+                break
+            except Exception as e:
+                print(f"🎧 Error crítico en loop de audio: {e}")
+                break
+        print("🎧 AudioProcessorTrack: Loop de consumo de audio finalizado.")
+
+    def stop(self):
+        """Método de limpieza para detener el bucle de consumo."""
+        self.stop_event.set()
 
     async def _process_command(self, command):
         """Decide qué hacer con el comando de voz."""
@@ -120,3 +150,11 @@ class AudioProcessorTrack(MediaStreamTrack):
         elif "iniciar grabación" in command:
             print("🎬 Comando 'Iniciar Grabación' detectado.")
             await self.sio.emit("command_executed", {"action": "start_recording"})
+            
+    async def recv(self):
+        """
+        [CORRECCIÓN CRÍTICA] Este método debe existir porque 
+        MediaStreamTrack lo declara como abstracto, pero no lo usamos 
+        porque consumimos el frame en _run_loop.
+        """
+        raise NotImplementedError("AudioProcessorTrack solo consume datos, no los re-envía por recv().")

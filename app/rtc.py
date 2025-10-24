@@ -4,6 +4,7 @@ from aiortc.sdp import candidate_from_sdp
 
 pc = RTCPeerConnection()
 video_processor_instance = None
+audio_processor_instance = None
 
 async def handle_ice(data):
     print("❄️ ICE recibido:", data)
@@ -20,20 +21,22 @@ async def handle_ice(data):
         print(f"⚠️ Error agregando ICE: {e}")
         
 def setup_webrtc_handlers(sio_server):
-    """
-    Configura los handlers de pc.on() y retorna una versión de 
-    handle_offer que ya tiene acceso a la instancia sio.
-    """
     global pc
     global video_processor_instance
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
         print("📡 Estado conexión:", pc.connectionState)
+        if pc.connectionState == "closed":
+            global audio_processor_instance
+            if audio_processor_instance:
+                audio_processor_instance.stop()
 
     @pc.on("track")
     def on_track(track):
         global video_processor_instance
+        global audio_processor_instance
+        
         print(f"🎯 Track recibido: {track.kind}")
         
         if track.kind == "video":

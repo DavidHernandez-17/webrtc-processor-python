@@ -21,14 +21,29 @@ RUN pip install --upgrade pip setuptools wheel \
 
 COPY app ./app
 
-RUN echo "📂 Contenido de /app/app/models antes de descomprimir:" && ls -la /app/app/models && \
-    if [ -f /app/app/models/vosk-model-small-es-0.42.zip ]; then \
+RUN MODEL_DIR="/app/app/models" && \
+    MODEL_ZIP="${MODEL_DIR}/vosk-model-small-es-0.42.zip" && \
+    MODEL_URL="https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip" && \
+    mkdir -p ${MODEL_DIR} && \
+    if [ ! -d "${MODEL_DIR}/vosk-model-small-es-0.42" ]; then \
+        if [ ! -f "${MODEL_ZIP}" ]; then \
+            echo "⬇️ Descargando modelo Vosk..." && \
+            curl -L -o ${MODEL_ZIP} ${MODEL_URL}; \
+        fi && \
         echo "🗜️ Descomprimiendo modelo Vosk..." && \
-        unzip /app/app/models/vosk-model-small-es-0.42.zip -d /app/app/models/ && \
-        rm /app/app/models/vosk-model-small-es-0.42.zip; \
+        unzip -q ${MODEL_ZIP} -d ${MODEL_DIR} && \
+        rm ${MODEL_ZIP} && \
+        echo "✅ Modelo Vosk listo."; \
     else \
-        echo "⚠️ No se encontró el archivo ZIP en /app/app/models"; \
+        echo "✅ Modelo Vosk ya existe, no se descarga."; \
     fi && \
-    echo "📂 Contenido de /app/app/models después de descomprimir:" && ls -la /app/app/models
+    chmod -R a+rx ${MODEL_DIR} && \
+    echo "📂 Contenido final de /app/app/models:" && ls -la ${MODEL_DIR}
+
+RUN VOSK_FINAL_DIR="/usr/local/lib/python3.11/site-packages/vosk_model" && \
+    mkdir -p ${VOSK_FINAL_DIR} && \
+    mv /app/app/models/vosk-model-small-es-0.42 ${VOSK_FINAL_DIR}/ && \
+    echo "✅ Modelo movido a ${VOSK_FINAL_DIR}/vosk-model-small-es-0.42" && \
+    chmod -R a+rX ${VOSK_FINAL_DIR}/vosk-model-small-es-0.42
 
 CMD ["python", "-m", "app.main"]

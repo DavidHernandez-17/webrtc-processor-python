@@ -1,12 +1,14 @@
 import socketio
-from .rtc import handle_offer, handle_ice
+from .rtc import setup_webrtc_handlers, handle_ice
 
 sio = socketio.AsyncClient()
+
+handle_offer = setup_webrtc_handlers(sio)
 
 def register_signaling_events():
     @sio.on("offer")
     async def on_offer(data):
-        await handle_offer(data, sio)
+        await handle_offer(data)
 
     @sio.on("ice-candidate")
     async def on_ice(data):

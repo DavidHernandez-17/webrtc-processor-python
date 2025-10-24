@@ -6,8 +6,11 @@ from aiortc.mediastreams import MediaStreamTrack
 import json
 import time
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "vosk-model-small-es-0.42")
+MODEL_PATH = "/usr/local/lib/python3.11/site-packages/vosk_model/vosk-model-small-es-0.42"
+
+print(f"DEBUG: MODEL_PATH completo: {MODEL_PATH}")
+print(f"DEBUG: ¿Existe el modelo? {os.path.isdir(MODEL_PATH)}")
+
 SAMPLE_RATE = 16000
 
 if not os.path.exists(MODEL_PATH):

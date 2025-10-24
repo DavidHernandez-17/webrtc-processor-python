@@ -1,8 +1,9 @@
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
-from .processor import VideoProcessorTrack
+from aiortc import RTCPeerConnection, RTCSessionDescription
+from .processor import VideoProcessorTrack, AudioProcessorTrack
 from aiortc.sdp import candidate_from_sdp
 
 pc = RTCPeerConnection()
+video_processor_instance = None
 
 @pc.on("connectionstatechange")
 async def on_connectionstatechange():
@@ -10,11 +11,25 @@ async def on_connectionstatechange():
 
 @pc.on("track")
 def on_track(track):
+    global video_processor_instance
     print(f"🎯 Track recibido: {track.kind}")
+    
     if track.kind == "video":
         print("📹 Stream de video recibido (iniciando procesamiento)")
-        processed_track = VideoProcessorTrack(track)
-        pc.addTrack(processed_track)
+        video_processor_instance = VideoProcessorTrack(track)
+        # pc.addTrack(video_processor_instance)
+    
+    elif track.kind == "audio":
+        print("🎧 Stream de audio recibido (iniciando reconocimiento de voz)")
+        if video_processor_instance is None:
+            print("⚠️ Advertencia: El track de video aún no se ha inicializado. El reconocimiento de voz no podrá capturar fotos.")
+
+        audio_processor_instance = AudioProcessorTrack(
+            track=track, 
+            video_processor=video_processor_instance,
+            sio_server=sio # ⬅️ Asegúrate de que 'sio' sea accesible aquí
+        )
+        # pc.addTrack(audio_processor_instance)
 
 async def handle_offer(data, sio):
     print("📥 Offer recibida")

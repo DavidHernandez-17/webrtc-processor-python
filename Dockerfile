@@ -4,6 +4,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     unzip \
+    curl \
+    sqlite3 \
     libgl1 \
     libglib2.0-0 \
     libavdevice-dev \
@@ -21,7 +23,9 @@ RUN pip install --upgrade pip setuptools wheel \
 
 COPY app ./app
 
-RUN MODEL_DIR="/app/app/models" && \
+RUN mkdir -p /app/data && chmod -R a+rw /app/data
+
+RUN MODEL_DIR="/app/app/ai_models" && \
     MODEL_ZIP="${MODEL_DIR}/vosk-model-small-es-0.42.zip" && \
     MODEL_URL="https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip" && \
     mkdir -p ${MODEL_DIR} && \
@@ -38,11 +42,11 @@ RUN MODEL_DIR="/app/app/models" && \
         echo "✅ Modelo Vosk ya existe, no se descarga."; \
     fi && \
     chmod -R a+rx ${MODEL_DIR} && \
-    echo "📂 Contenido final de /app/app/models:" && ls -la ${MODEL_DIR}
+    echo "📂 Contenido final de /app/app/ai_models:" && ls -la ${MODEL_DIR}
 
 RUN VOSK_FINAL_DIR="/usr/local/lib/python3.11/site-packages/vosk_model" && \
     mkdir -p ${VOSK_FINAL_DIR} && \
-    mv /app/app/models/vosk-model-small-es-0.42 ${VOSK_FINAL_DIR}/ && \
+    mv /app/app/ai_models/vosk-model-small-es-0.42 ${VOSK_FINAL_DIR}/ && \
     echo "✅ Modelo movido a ${VOSK_FINAL_DIR}/vosk-model-small-es-0.42" && \
     chmod -R a+rX ${VOSK_FINAL_DIR}/vosk-model-small-es-0.42
 

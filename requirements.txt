@@ -4,3 +4,4 @@ aiortc==1.9.0
 aiohttp
 python-socketio[client]==5.11.2
 vosk==0.3.45
+sqlalchemy==2.0.23

@@ -4,5 +4,10 @@ services:
     container_name: webrtc-processor
     volumes:
       - ./app:/app/app
+      - ./data:/app/data
+      - ./images:/app/images
+      - ./videos:/app/videos
     stdin_open: true
     tty: true
+    ports:
+      - "8080:8080"

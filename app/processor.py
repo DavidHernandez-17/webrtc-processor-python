@@ -34,34 +34,72 @@ class VideoProcessorTrack(VideoStreamTrack):
         self.track = track
         self.count = 0
         self._last_frame = None
+        self._last_frame_time = 0  # Timestamp del último frame
+        self._last_capture_time = 0  # Para evitar capturas duplicadas
+        self._capture_cooldown = 2.0  # Segundos entre capturas
 
     async def recv(self):
-        print("📹 Stream de video processor track")
         frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
+        
+        # Actualizar frame y timestamp inmediatamente
+        self._last_frame = frame
+        self._last_frame_time = time.time()
         self.count += 1
         
-        # Dibujar indicador verde (centro)
-        h, w, _ = img.shape
-        cv2.circle(img, (w // 2, h // 2), 10, (0, 255, 0), -1)
-        self._last_frame = frame
-
-        print(f"📹 Frame #{self.count} procesado.")
-        return frame.from_ndarray(img, format="bgr24")
+        # Log reducido
+        if self.count % 300 == 0:
+            print(f"📹 Frames procesados: {self.count}")
+        
+        # Retornar el frame original sin modificaciones
+        return frame
 
     async def capture_frame(self):
-        """Captura el último frame recibido del video."""
+        """Captura el último frame recibido del video en máxima calidad."""
+        current_time = time.time()
+        
+        # Verificar cooldown para evitar capturas duplicadas
+        if current_time - self._last_capture_time < self._capture_cooldown:
+            remaining = self._capture_cooldown - (current_time - self._last_capture_time)
+            print(f"⚠️ Captura en cooldown. Espera {remaining:.1f}s")
+            return None
+        
         if self._last_frame is None:
             print("⚠️ No hay frames de video para capturar.")
             return None
         
+        # Verificar que el frame no sea muy antiguo (máximo 200ms)
+        frame_age = current_time - self._last_frame_time
+        if frame_age > 0.2:
+            print(f"⚠️ Advertencia: El frame tiene {frame_age*1000:.0f}ms de antigüedad")
+        else:
+            print(f"✅ Frame capturado con latencia de {frame_age*1000:.0f}ms")
+        
+        # Usar el directorio images que ya está montado como volumen
+        images_dir = "images"
+        os.makedirs(images_dir, exist_ok=True)
+        
         timestamp = int(time.time() * 1000)
         filename = f"capture_{timestamp}.jpg"
+        filepath = os.path.join(images_dir, filename)
 
+        # Convertir frame a imagen de alta calidad
         cv2_image = self._last_frame.to_ndarray(format="bgr24")
-        cv2.imwrite(filename, cv2_image)
+        
+        # Obtener resolución original
+        height, width = cv2_image.shape[:2]
+        
+        # Verificar si la resolución es muy baja
+        if width < 640 or height < 480:
+            print(f"⚠️ ADVERTENCIA: Resolución muy baja detectada ({width}x{height})")
+            print(f"⚠️ Verifica las constraints de video en Flutter")
+        
+        # Guardar con máxima calidad JPEG (95%)
+        cv2.imwrite(filepath, cv2_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        
+        # Actualizar tiempo de última captura
+        self._last_capture_time = current_time
 
-        print(f"📸 Frame guardado en {filename}")
+        print(f"📸 Frame guardado en {filepath} ({width}x{height})")
         return filename
 
 
@@ -76,7 +114,6 @@ class AudioProcessorTrack(MediaStreamTrack):
         self.last_pts = None
         self.stop_event = asyncio.Event()
         
-        # CRÍTICO: Inicializar el recognizer con la tasa correcta
         self.recognizer = KaldiRecognizer(VOSK_MODEL, VOSK_SAMPLE_RATE)
         self.recognizer.SetWords(True)  # Obtener palabras individuales
         
@@ -177,15 +214,18 @@ class AudioProcessorTrack(MediaStreamTrack):
                 # Convertir a bytes
                 chunk = resampled_frame.to_ndarray()
                 
+                # Aplanar correctamente si es 2D: (1, N) o (N, 1) → (N,)
                 if len(chunk.shape) > 1:
                     # Si es (1, N), aplanar a (N,)
                     if chunk.shape[0] == 1:
                         chunk = chunk.flatten()
+                    # Si es (N, M) con M > 1 (estéreo), promediar canales
                     elif chunk.shape[1] > 1:
                         chunk = chunk.mean(axis=1).astype(np.int16)
                     else:
                         chunk = chunk.flatten()
                 
+                # Asegurar que sea int16
                 if chunk.dtype != np.int16:
                     chunk = chunk.astype(np.int16)
                 
@@ -193,7 +233,7 @@ class AudioProcessorTrack(MediaStreamTrack):
                 
                 # Debug cada 100 frames
                 if frame_count % 100 == 0:
-                    print(f"🎤 Frame {frame_count}: {len(audio_data)} bytes, shape después de procesar: {chunk.shape}, min={chunk.min()}, max={chunk.max()}")
+                    print(f"🎤 Frame {frame_count}: {len(audio_data)} bytes")
                 
                 # Guardar para depuración
                 self.wav_file.writeframes(audio_data)
@@ -216,11 +256,14 @@ class AudioProcessorTrack(MediaStreamTrack):
                         # Resultado parcial
                         partial = json.loads(self.recognizer.PartialResult())
                         partial_text = partial.get("partial", "").strip().lower()
-                        if partial_text:
+                        if partial_text and frame_count % 50 == 0:
                             print(f"🗣️ Parcial: '{partial_text}'")
                     
                     # Limpiar buffer después de procesar
                     self.audio_buffer.clear()
+                    
+                # Pequeña pausa para no bloquear el video
+                await asyncio.sleep(0.001)
 
             except MediaStreamError:
                 print("🔚 Fin del stream de audio.")
@@ -255,11 +298,25 @@ class AudioProcessorTrack(MediaStreamTrack):
         # Comandos de captura de foto
         if any(keyword in command for keyword in ["tomar foto", "capturar", "saca foto", "fotografía", "foto"]):
             print("📸 Comando de captura detectado.")
+            
+            if self.video_processor is None:
+                print("❌ Error: No hay VideoProcessorTrack disponible")
+                await self.sio.emit("command_executed", {
+                    "action": "error",
+                    "message": "No video processor available"
+                })
+                return
+            
             captured_image_path = await self.video_processor.capture_frame()
             if captured_image_path:
                 await self.sio.emit("command_executed", {
                     "action": "photo_captured",
                     "path": captured_image_path
+                })
+            else:
+                await self.sio.emit("command_executed", {
+                    "action": "error",
+                    "message": "Failed to capture frame"
                 })
         
         # Comando de iniciar grabación

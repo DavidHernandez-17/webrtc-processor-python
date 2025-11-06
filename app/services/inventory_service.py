@@ -1,4 +1,4 @@
-from models.database import DatabaseManager, Inventory, Space, Element, Attribute, Image, Video
+from app.models.database import DatabaseManager, Inventory, Space, Element, Attribute, Image, Video
 from datetime import datetime
 import os
 import cv2
@@ -117,7 +117,7 @@ class InventoryService:
         finally:
             session.close()
     
-    def get_attributes(self, element_id):
+    def get_attributes(self, element_id=None):
         elem_id = element_id or self.current_element_id
         if not elem_id:
             raise ValueError("No hay elemento seleccionado")

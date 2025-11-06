@@ -10,6 +10,8 @@ import wave
 import tempfile
 import numpy as np
 from av import AudioResampler
+from .services.inventory_service import InventoryService
+from .services.name_extraction_service import NameExtractionService
 
 MODEL_PATH = "/usr/local/lib/python3.11/site-packages/vosk_model/vosk-model-small-es-0.42"
 print(f"DEBUG: ¿Existe el modelo? {os.path.isdir(MODEL_PATH)}")
@@ -294,6 +296,8 @@ class AudioProcessorTrack(MediaStreamTrack):
 
     async def _process_command(self, command):
         """Procesa comandos de voz detectados."""
+        name_extractor = NameExtractionService()
+        inventory_service = InventoryService()
         
         # Comandos de captura de foto
         if any(keyword in command for keyword in ["tomar foto", "capturar", "saca foto", "fotografía", "foto"]):
@@ -318,13 +322,18 @@ class AudioProcessorTrack(MediaStreamTrack):
                     "action": "error",
                     "message": "Failed to capture frame"
                 })
+                
+        elif any(keyword in command for keyword in ["ingresar a espacio", "entrar al espacio", "abrir espacio"]):
+            print("Comando 'Ingresar a espacio detectado.'")
+            space_name = name_extractor.extract_space_name(command)
+            print("Nombre de espacio: ", space_name)
+            space = inventory_service.enter_space(space_name)
+            await self.sio.emit("command_executed", {"action": "enter_space", "space": space})
         
-        # Comando de iniciar grabación
         elif any(keyword in command for keyword in ["iniciar grabación", "empezar a grabar", "comenzar grabación"]):
             print("🎬 Comando 'Iniciar Grabación' detectado.")
             await self.sio.emit("command_executed", {"action": "start_recording"})
         
-        # Comando de detener grabación
         elif any(keyword in command for keyword in ["detener grabación", "parar grabación", "terminar grabación"]):
             print("⏹️ Comando 'Detener Grabación' detectado.")
             await self.sio.emit("command_executed", {"action": "stop_recording"})

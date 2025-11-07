@@ -56,7 +56,7 @@ class InventoryAPI:
         "error": str(e)
       }, status=500)
       
-  async def get_inventories(self) -> web.Response:
+  async def get_inventories(self, request: web.Request) -> web.Response:
     try:
       inventories = self.inventory_service.get_inventories()
       

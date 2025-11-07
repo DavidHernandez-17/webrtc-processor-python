@@ -11,8 +11,10 @@ class Inventory(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     origin_id = Column(Integer, unique=False, nullable=True)
-    name = Column(String, nullable=False)
-    description = Column(Text)
+    property_id = Column(Integer, nullable=False)
+    inventory_type_id = Column(Integer, nullable=False)
+    event_id = Column(Integer, nullable=False)
+    action = Column(String, default='create')
     synced = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

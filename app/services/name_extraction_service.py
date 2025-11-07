@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Dict, List
+from typing import Optional
 
 class NameExtractionService:
   def __init__(self):

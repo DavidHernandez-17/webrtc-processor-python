@@ -11,12 +11,25 @@ class InventoryService:
         self.current_space_id = None
         self.current_element_id = None
         
-    def enter_inventory(self, name, description=None):
+    def enter_inventory(self, property_id, inventory_type_id, event_id):
         session = self.db_manager.get_session()
         try:
-            inventory = Inventory(name=name, description=description)
-            session.add(inventory)
-            session.commit()
+            inventory = session.query(Inventory).filter_by(
+                property_id=property_id,
+                inventory_type_id=inventory_type_id,
+                event_id=event_id
+            ).first()
+            
+            if not inventory:
+                inventory = Inventory(
+                    property_id=property_id,
+                    inventory_type_id=inventory_type_id,
+                    event_id=event_id
+                )
+                session.add(inventory)
+                session.commit()
+                
+            self.reset_current_status()
             self.current_inventory_id = inventory.id
             return inventory
         finally:

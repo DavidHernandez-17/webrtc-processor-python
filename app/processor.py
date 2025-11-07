@@ -36,9 +36,9 @@ class VideoProcessorTrack(VideoStreamTrack):
         self.track = track
         self.count = 0
         self._last_frame = None
-        self._last_frame_time = 0  # Timestamp del último frame
-        self._last_capture_time = 0  # Para evitar capturas duplicadas
-        self._capture_cooldown = 2.0  # Segundos entre capturas
+        self._last_frame_time = 0
+        self._last_capture_time = 0
+        self._capture_cooldown = 2.0
 
     async def recv(self):
         frame = await self.track.recv()
@@ -134,6 +134,9 @@ class AudioProcessorTrack(MediaStreamTrack):
         self.wav_file.setframerate(VOSK_SAMPLE_RATE)
 
         print(f"🎙️ Grabando audio recibido en: {self.temp_audio_path}")
+        
+        self.name_extractor = NameExtractionService()
+        self.inventory_service = InventoryService()
         
         # Ejecutar bucle asíncrono
         asyncio.ensure_future(self._run_loop())
@@ -294,11 +297,7 @@ class AudioProcessorTrack(MediaStreamTrack):
         """Detiene el bucle de audio."""
         self.stop_event.set()
 
-    async def _process_command(self, command):
-        """Procesa comandos de voz detectados."""
-        name_extractor = NameExtractionService()
-        inventory_service = InventoryService()
-        
+    async def _process_command(self, command):       
         # Comandos de captura de foto
         if any(keyword in command for keyword in ["tomar foto", "capturar", "saca foto", "fotografía", "foto"]):
             print("📸 Comando de captura detectado.")
@@ -325,9 +324,9 @@ class AudioProcessorTrack(MediaStreamTrack):
                 
         elif any(keyword in command for keyword in ["ingresar a espacio", "entrar al espacio", "abrir espacio"]):
             print("Comando 'Ingresar a espacio detectado.'")
-            space_name = name_extractor.extract_space_name(command)
+            space_name = self.name_extractor.extract_space_name(command)
             print("Nombre de espacio: ", space_name)
-            space = inventory_service.enter_space(space_name)
+            space = self.inventory_service.enter_space(space_name)
             await self.sio.emit("command_executed", {"action": "enter_space", "space": space})
         
         elif any(keyword in command for keyword in ["iniciar grabación", "empezar a grabar", "comenzar grabación"]):

@@ -18,6 +18,7 @@ class NameExtractionService:
     
     self.element_patterns = [
       r"ingresar\s+a\s+elemento\s+(.+)",
+      r"entrar\s+al\s+elemento\s+(.+)",
       r"agregar\s+(?:el\s+)?(.+)",
       r"añadir\s+(?:el\s+)?(.+)",
       r"registrar\s+(?:el\s+)?(.+)",
@@ -85,7 +86,6 @@ class NameExtractionService:
       if match:
         element_name = match.group(1).strip()
         element_name = self._clean_trailing_words(element_name)
-        element_name = re.sub(r'\s+(foto|imagen|captura)$', '', element_name, flags=re.IGNORECASE)
         
         return self._capitalize_name(element_name)
     

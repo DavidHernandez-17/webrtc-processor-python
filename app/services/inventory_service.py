@@ -105,25 +105,33 @@ class InventoryService:
             session.close()
             
     # ============ ELEMENTS ============    
-    def enter_element(self, name, description=None, amount=1):
-        if not self.current_espacio_id:
+    def enter_element(self, element_name, description=None, amount=1):
+        if not self.current_space_id:
             raise ValueError("Debe ingresar a un espacio primero")
         
         session = self.db_manager.get_session()
         try:
-            element = Element(
+            element = session.query(Element).filter_by(
                 space_id=self.current_space_id,
-                name=name,
-                description=description,
-                amount=amount
-            )
-            session.add(element)
-            session.commit()
+                name=element_name
+            ).first()
+            
+            if not element:
+                element = Element(
+                    space_id=self.current_space_id,
+                    name=element_name,
+                    description=description,
+                    amount=amount
+                )
+                session.add(element)
+                session.commit()
             
             self.current_element_id = element.id
             self.save_context()
             
-            return element
+            print("Element json: ", to_dict_model(element))
+            
+            return to_dict_model(element)
         finally:
             session.close()
     

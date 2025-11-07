@@ -328,6 +328,13 @@ class AudioProcessorTrack(MediaStreamTrack):
             print("Nombre de espacio: ", space_name)
             space = self.inventory_service.enter_space(space_name)
             await self.sio.emit("command_executed", {"action": "enter_space", "space": space})
+            
+        elif any(keyword in command for keyword in ["ingresar a elemento", "entrar al elemento", "abrir elemento"]):
+            print("Comando 'Ingresar a elemento detectado.'")
+            element_name = self.name_extractor.extract_element_name(command)
+            print("Nombre de elemento: ", element_name)
+            element = self.inventory_service.enter_element(element_name)
+            await self.sio.emit("command_executed", {"action": "enter_element", "element": element})
         
         elif any(keyword in command for keyword in ["iniciar grabación", "empezar a grabar", "comenzar grabación"]):
             print("🎬 Comando 'Iniciar Grabación' detectado.")

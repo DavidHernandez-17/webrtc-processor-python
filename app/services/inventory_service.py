@@ -38,7 +38,7 @@ class InventoryService:
             self.current_inventory_id = inventory.id
             self.save_context()
             
-            return inventory
+            return to_dict_model(inventory)
         finally:
             session.close()
     
@@ -324,7 +324,11 @@ class InventoryService:
         session = self.db_manager.get_session()
         try:
             ctx = session.query(SessionContext).first()
-            print('Session context: ', ctx.current_inventory_id)
+            print('Session context: ', {
+                "inventory_id": ctx.current_inventory_id,
+                "space_id":  ctx.current_space_id,
+                "element_id": ctx.current_element_id
+            })
             if ctx:
                 self.current_inventory_id = ctx.current_inventory_id
                 self.current_space_id = ctx.current_space_id

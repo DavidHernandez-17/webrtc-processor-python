@@ -2,7 +2,6 @@ from aiohttp import web
 import json
 import traceback
 from app.services.inventory_service import InventoryService
-from app.dtos.inventory_dto import InventoryDto
 
 class InventoryAPI:
   def __init__(self, inventory_service: InventoryService):
@@ -39,10 +38,10 @@ class InventoryAPI:
       inventory = self.inventory_service.enter_inventory(
         property_id, inventory_type_id, event_id
       )
-            
+
       return web.json_response({
         "success": True,
-        "inventory": InventoryDto.from_model(inventory).to_dict(),
+        "inventory": inventory,
         "metadata": {
           "property_id": property_id,
           "inventory_type_id": inventory_type_id,
@@ -57,7 +56,7 @@ class InventoryAPI:
         "error": str(e)
       }, status=500)
       
-  async def get_inventories(self, request: web.Request) -> web.Response:
+  async def get_inventories(self) -> web.Response:
     try:
       inventories = self.inventory_service.get_inventories()
       

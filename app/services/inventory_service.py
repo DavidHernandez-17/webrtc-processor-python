@@ -1,7 +1,10 @@
-from app.models.database import DatabaseManager, Inventory, Space, Element, Attribute, Image, Video
+from app.models.database import DatabaseManager, Inventory, Space, Element, Attribute, Image, Video, SessionContext
 from datetime import datetime
 import os
 import cv2
+from app.utils.serializers import to_dict_model
+from sqlalchemy.orm import joinedload
+from app.utils.serializers import to_dict_model
 
 class InventoryService:
     def __init__(self, db_path='/app/data/inventory.db'):
@@ -10,6 +13,8 @@ class InventoryService:
         self.current_inventory_id = None
         self.current_space_id = None
         self.current_element_id = None
+        
+        self.load_context()
         
     def enter_inventory(self, property_id, inventory_type_id, event_id):
         session = self.db_manager.get_session()
@@ -31,6 +36,8 @@ class InventoryService:
                 
             self.reset_current_status()
             self.current_inventory_id = inventory.id
+            self.save_context()
+            
             return inventory
         finally:
             session.close()
@@ -38,7 +45,20 @@ class InventoryService:
     def get_inventories(self):
         session = self.db_manager.get_session()
         try:
-            return session.query(Inventory).all()
+            inventories = (
+            session.query(Inventory)
+                .options(
+                    joinedload(Inventory.spaces)
+                    .joinedload(Space.elements)
+                    .joinedload(Element.attributes),
+                    joinedload(Inventory.spaces)
+                    .joinedload(Space.inventory)
+                )
+                .all()
+            )
+            
+            result = [to_dict_model(inv, include_relationships=True) for inv in inventories]
+            return result
         finally:
             session.close()
             
@@ -65,7 +85,11 @@ class InventoryService:
             
             self.current_space_id = space.id
             self.current_element_id = None
-            return space
+            self.save_context()
+            
+            print("Espacio json: ", to_dict_model(space))
+            
+            return to_dict_model(space)
         finally:
             session.close()
     
@@ -97,6 +121,8 @@ class InventoryService:
             session.commit()
             
             self.current_element_id = element.id
+            self.save_context()
+            
             return element
         finally:
             session.close()
@@ -262,6 +288,7 @@ class InventoryService:
             session.commit()
         finally:
             session.close()
+            
     
     # ============ UTILS ============
     def get_current_status(self):
@@ -275,3 +302,34 @@ class InventoryService:
         self.current_inventory_id = None
         self.current_space_id = None
         self.current_element_id = None
+        
+        
+    # ============ SESSION CONTEXT ============
+    def save_context(self):
+        session = self.db_manager.get_session()
+        try:
+            ctx = session.query(SessionContext).first()
+            if not ctx:
+                ctx = SessionContext()
+                session.add(ctx)
+            
+            ctx.current_inventory_id = self.current_inventory_id
+            ctx.current_space_id = self.current_space_id
+            ctx.current_element_id = self.current_element_id
+            session.commit()
+        finally:
+            session.close()
+                       
+    def load_context(self):
+        session = self.db_manager.get_session()
+        try:
+            ctx = session.query(SessionContext).first()
+            print('Session context: ', ctx.current_inventory_id)
+            if ctx:
+                self.current_inventory_id = ctx.current_inventory_id
+                self.current_space_id = ctx.current_space_id
+                self.current_element_id = ctx.current_element_id
+            else:
+                self.reset_current_status()
+        finally:
+            session.close()

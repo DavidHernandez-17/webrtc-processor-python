@@ -116,6 +116,14 @@ class Video(Base):
     
     # Relaciones
     space = relationship("Space", back_populates="videos")
+    
+class SessionContext(Base):
+    __tablename__ = "session_context"
+
+    id = Column(Integer, primary_key=True)
+    current_inventory_id = Column(Integer, nullable=True)
+    current_space_id = Column(Integer, nullable=True)
+    current_element_id = Column(Integer, nullable=True)
 
 
 class DatabaseManager:

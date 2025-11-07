@@ -5,7 +5,8 @@ from .database import (
     Element,
     Attribute,
     Image,
-    Video
+    Video,
+    SessionContext,
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'Element',
     'Attribute',
     'Image',
-    'Video'
+    'Video',
+    'SessionContext'
 ]

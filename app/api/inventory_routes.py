@@ -11,6 +11,7 @@ class InventoryAPI:
   def setup_routes(self, app: web.Application):
     app.router.add_get("/", lambda request: web.json_response({"status": "ok"}))
     app.router.add_post('/api/v1/inventory/enter', self.enter_inventory)
+    app.router.add_get('/api/v1/inventory', self.get_inventories)
     
   async def enter_inventory(self, request: web.Request) -> web.Response:
     try:
@@ -50,6 +51,23 @@ class InventoryAPI:
       })
     except Exception as e:
       print("❌ Error en enter_inventory:", str(e))
+      traceback.print_exc()
+      return web.json_response({
+        "success": False,
+        "error": str(e)
+      }, status=500)
+      
+  async def get_inventories(self, request: web.Request) -> web.Response:
+    try:
+      inventories = self.inventory_service.get_inventories()
+      
+      return web.json_response({
+        "success": True,
+        "inventories": inventories,
+        "count": len(inventories)
+      })
+    except Exception as e:
+      print("❌ Error en get_inventories:", str(e))
       traceback.print_exc()
       return web.json_response({
         "success": False,

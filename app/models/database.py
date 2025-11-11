@@ -52,6 +52,7 @@ class Element(Base):
     name = Column(String, nullable=False)
     description = Column(Text)
     amount = Column(Integer, default=1)
+    status = Column(String, nullable=True)
     action = Column(String, default='create')
     synced = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

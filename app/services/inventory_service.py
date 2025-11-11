@@ -350,9 +350,9 @@ class InventoryService:
         try:
             ctx = session.query(SessionContext).first()
             print('Session context: ', {
-                "inventory_id": ctx.current_inventory_id,
-                "space_id":  ctx.current_space_id,
-                "element_id": ctx.current_element_id
+                "inventory_id": ctx.current_inventory_id if ctx else None,
+                "space_id":  ctx.current_space_id if ctx else None,
+                "element_id": ctx.current_element_id if ctx else None
             })
             if ctx:
                 self.current_inventory_id = ctx.current_inventory_id
@@ -371,7 +371,7 @@ class InventoryService:
             element = session.get(Element, ctx.current_element_id) if ctx.current_element_id else None
             
             return {
-                "inventory_id": ctx.current_inventory_id,
+                "inventory_id": ctx.current_inventory_id if ctx else None,
                 "space_name": space.name if space else None,
                 "element_name": element.name if element else None,
             }

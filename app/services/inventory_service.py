@@ -200,7 +200,7 @@ class InventoryService:
             session.close()
     
     # ============ IMAGES ============
-    def save_image(self, frame, description=None, image_folder='images'):
+    def save_image(self, image_path, description=None):
         spac_id = self.current_space_id
         if not spac_id:
             raise ValueError("Debe ingresar a un espacio primero")
@@ -209,22 +209,12 @@ class InventoryService:
         if not elem_id:
             raise ValueError("Debe ingresar a un elemento primero")
         
-        full_folder = os.path.join(image_folder, f"space_{spac_id}", f"element_{elem_id}")
-        os.makedirs(full_folder, exist_ok=True)
-        
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        file_name = f"image_{timestamp}.jpg"
-        path = os.path.join(full_folder, file_name)
-        
-        cv2.imwrite(path, frame)
-        
-        # Registrar en la base de datos
         session = self.db_manager.get_session()
         try:
             image = Image(
                 space_id=self.current_space_id,
                 element_id=self.current_element_id,
-                path=path,
+                path=image_path,
                 description=description
             )
             session.add(image)

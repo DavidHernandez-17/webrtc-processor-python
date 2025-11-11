@@ -1,9 +1,16 @@
 import re
-from typing import Optional
+from typing import Optional, List, Dict
 
 class NameExtractionService:
   def __init__(self):
     self.connectors = ['de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'a']
+    self.color_words = ["rojo", "azul", "verde", "blanco", "negro", "gris", "amarillo"]
+    self.number_words = {
+      "un": 1, "una": 1, "uno": 1,
+      "dos": 2, "tres": 3, "cuatro": 4,
+      "cinco": 5, "seis": 6, "siete": 7,
+      "ocho": 8, "nueve": 9, "diez": 10
+    }
     self._setup_patterns()
     
   def _setup_patterns(self):        
@@ -20,7 +27,7 @@ class NameExtractionService:
       r"ingresar\s+a\s+elemento\s+(.+)",
       r"entrar\s+al\s+elemento\s+(.+)",
       r"agregar\s+(?:el\s+)?(.+)",
-      r"añadir\s+(?:el\s+)?(.+)",
+      r"abrir\s+(?:elemento\s+)?(.+)",
       r"registrar\s+(?:el\s+)?(.+)",
       r"elemento\s+(.+)",
       r"item\s+(.+)",
@@ -90,6 +97,40 @@ class NameExtractionService:
         return self._capitalize_name(element_name)
     
     return None
+  
+  def extract_elements_from_command(self, command: str) -> List[Dict]:
+      command = command.lower().replace("el espacio tiene", "").strip()
+
+      parts = re.split(r",| y ", command)
+      elements = []
+
+      for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        amount_match = re.search(r"(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)", part)
+        amount = 1
+        if amount_match:
+          val = amount_match.group(1)
+          amount = int(val) if val.isdigit() else self.number_words.get(val, 1)
+
+        color = None
+        for c in self.color_words:
+          if c in part:
+            color = c
+            break
+
+        name_match = re.search(r"(?:\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)?\s*(\w+)", part)
+        name = name_match.group(1) if name_match else "elemento"
+
+        elements.append({
+          "name": name,
+          "amount": amount,
+          "color": color
+        })
+
+      return elements
   
   def extract_attribute(self, command: str, attribute_type: str) -> Optional[str]:
     command = command.lower().strip()

@@ -12,6 +12,7 @@ import numpy as np
 from av import AudioResampler
 from .services.inventory_service import InventoryService
 from .services.name_extraction_service import NameExtractionService
+from app.utils.serializers import to_dict_model
 
 MODEL_PATH = "/usr/local/lib/python3.11/site-packages/vosk_model/vosk-model-small-es-0.42"
 print(f"DEBUG: ¿Existe el modelo? {os.path.isdir(MODEL_PATH)}")
@@ -311,6 +312,7 @@ class AudioProcessorTrack(MediaStreamTrack):
             
             captured_image_path = await self.video_processor.capture_frame()
             if captured_image_path:
+                self.inventory_service.save_image(captured_image_path)
                 await self.sio.emit("command_executed", {
                     "action": "photo_captured",
                     "path": captured_image_path
@@ -331,12 +333,25 @@ class AudioProcessorTrack(MediaStreamTrack):
             except Exception as e:
                 print("❌ Error al emitir evento:", str(e))
             
+        elif any(keyword in command for keyword in ["el espacio tiene"]):
+            print("Comando 'El espacio tiene elementos' detectado.'")
+            elements = self.name_extractor.extract_elements_from_command(command)
+            print("Elementos detectados:", elements)
+            
+            created_elements = []
+            for el in elements:
+                element = self.inventory_service.enter_element(el["name"], description=el.get("color"), amount=el["amount"])
+                created_elements.append(element)
+                
+            await self.sio.emit("command_executed", {"action": "enter_elements", "elements": [to_dict_model(e) for e in created_elements]})
+            
         elif any(keyword in command for keyword in ["ingresar a elemento", "entrar al elemento", "abrir elemento"]):
             print("Comando 'Ingresar a elemento detectado.'")
             element_name = self.name_extractor.extract_element_name(command)
-            print("Nombre de elemento: ", element_name)
             element = self.inventory_service.enter_element(element_name)
+            
             await self.sio.emit("command_executed", {"action": "enter_element", "element": element})
+            print("✅ Evento emitido correctamente")
         
         elif any(keyword in command for keyword in ["iniciar grabación", "empezar a grabar", "comenzar grabación"]):
             print("🎬 Comando 'Iniciar Grabación' detectado.")

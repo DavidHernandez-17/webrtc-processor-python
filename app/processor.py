@@ -103,7 +103,7 @@ class VideoProcessorTrack(VideoStreamTrack):
         self._last_capture_time = current_time
 
         print(f"📸 Frame guardado en {filepath} ({width}x{height})")
-        return filename
+        return filepath
 
 
 class AudioProcessorTrack(MediaStreamTrack):

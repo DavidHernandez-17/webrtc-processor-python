@@ -135,14 +135,15 @@ class InventoryService:
         
         session = self.db_manager.get_session()
         try:
+            ctx = session.query(SessionContext).first()
             element = session.query(Element).filter_by(
-                space_id=self.current_space_id,
+                space_id=ctx.current_space_id,
                 name=element_name
             ).first()
             
             if not element:
                 element = Element(
-                    space_id=self.current_space_id,
+                    space_id=ctx.current_space_id,
                     name=element_name,
                     description=description,
                     amount=amount
@@ -201,19 +202,21 @@ class InventoryService:
     
     # ============ IMAGES ============
     def save_image(self, image_path, description=None):
-        spac_id = self.current_space_id
+        session = self.db_manager.get_session()
+        ctx = session.query(SessionContext).first()
+        spac_id = ctx.current_space_id
+        
         if not spac_id:
             raise ValueError("Debe ingresar a un espacio primero")
           
-        elem_id = self.current_element_id
+        elem_id = ctx.current_element_id
         if not elem_id:
             raise ValueError("Debe ingresar a un elemento primero")
         
-        session = self.db_manager.get_session()
         try:
             image = Image(
-                space_id=self.current_space_id,
-                element_id=self.current_element_id,
+                space_id=ctx.current_space_id,
+                element_id=ctx.current_element_id,
                 path=image_path,
                 description=description
             )
@@ -363,11 +366,12 @@ class InventoryService:
     def get_context(self):
         session = self.db_manager.get_session()
         try:
-            space = session.get(Space, self.current_space_id) if self.current_space_id else None
-            element = session.get(Element, self.current_element_id) if self.current_element_id else None
+            ctx = session.query(SessionContext).first()
+            space = session.get(Space, ctx.current_space_id) if ctx.current_space_id else None
+            element = session.get(Element, ctx.current_element_id) if ctx.current_element_id else None
             
             return {
-                "inventory_id": self.current_inventory_id,
+                "inventory_id": ctx.current_inventory_id,
                 "space_name": space.name if space else None,
                 "element_name": element.name if element else None,
             }

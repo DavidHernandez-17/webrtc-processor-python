@@ -1,5 +1,6 @@
 import asyncio
 from aiohttp import web
+from pathlib import Path
 
 from .signaling import sio, register_signaling_events
 from app.api.inventory_routes import InventoryAPI
@@ -7,6 +8,10 @@ from app.services.inventory_service import InventoryService
 
 async def init_app():
     app = web.Application()
+    
+    images_path = Path("/app/images")
+    images_path.mkdir(parents=True, exist_ok=True)
+    app.router.add_static("/images/", path=str(images_path), name="images")
 
     inventory_service = InventoryService()
     inventory_api = InventoryAPI(inventory_service)

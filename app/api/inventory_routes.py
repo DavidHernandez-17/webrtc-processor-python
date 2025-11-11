@@ -10,7 +10,10 @@ class InventoryAPI:
   def setup_routes(self, app: web.Application):
     app.router.add_get("/", lambda request: web.json_response({"status": "ok"}))
     app.router.add_post('/api/v1/inventory/enter', self.enter_inventory)
-    app.router.add_get('/api/v1/inventory', self.get_inventories)
+    app.router.add_get('/api/v1/inventories', self.get_inventories)
+    app.router.add_get('/api/v1/inventory', self.get_inventory)
+    
+    app.router.add_get('/api/v1/context', self.get_context)
     
   async def enter_inventory(self, request: web.Request) -> web.Response:
     try:
@@ -67,6 +70,46 @@ class InventoryAPI:
       })
     except Exception as e:
       print("❌ Error en get_inventories:", str(e))
+      traceback.print_exc()
+      return web.json_response({
+        "success": False,
+        "error": str(e)
+      }, status=500)
+      
+  async def get_inventory(self, request: web.Request) -> web.Response:
+    try:
+      inventory_id = request.query.get('inventory_id')
+
+      if not inventory_id:
+        return web.json_response({
+          "success": False,
+          "error": "Missing required parameter: inventory_id"
+        }, status=400)
+
+      inventory = self.inventory_service.get_inventory(inventory_id)
+
+      return web.json_response({
+        "success": True,
+        "inventory": inventory
+      })
+
+    except Exception as e:
+      print("❌ Error en get_inventory:", str(e))
+      traceback.print_exc()
+      return web.json_response({
+        "success": False,
+        "error": str(e)
+      }, status=500)
+        
+  async def get_context(self, request: web.Request) -> web.Response:
+    try:
+      context = self.inventory_service.get_context()
+      return web.json_response({
+        "success": True,
+        "context": context,
+      })
+    except:
+      print("❌ Error en get_context:", str(e))
       traceback.print_exc()
       return web.json_response({
         "success": False,

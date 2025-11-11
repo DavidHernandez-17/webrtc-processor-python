@@ -62,6 +62,30 @@ class InventoryService:
         finally:
             session.close()
             
+    def get_inventory(self, inventory_id):
+        session = self.db_manager.get_session()
+        try:
+            inventory = (
+                session.query(Inventory)
+                .options(
+                    joinedload(Inventory.spaces)
+                    .joinedload(Space.elements)
+                    .joinedload(Element.attributes),
+                    joinedload(Inventory.spaces)
+                    .joinedload(Space.inventory)
+                )
+                .filter(Inventory.id == inventory_id)
+                .first()
+            )
+            
+            if not inventory:
+                raise ValueError(f"No se encontró inventario con id {inventory_id}")
+            
+            result = to_dict_model(inventory, include_relationships=True)
+            return result
+        finally:
+            session.close()
+            
     # ============ SPACES ============    
     def enter_space(self, space_name, description=None):
         if not self.current_inventory_id:
@@ -345,3 +369,19 @@ class InventoryService:
                 self.reset_current_status()
         finally:
             session.close()
+            
+    def get_context(self):
+        session = self.db_manager.get_session()
+        try:
+            space = session.get(Space, self.current_space_id) if self.current_space_id else None
+            element = session.get(Element, self.current_element_id) if self.current_element_id else None
+            
+            return {
+                "inventory_id": self.current_inventory_id,
+                "space_name": space.name if space else None,
+                "element_name": element.name if element else None,
+            }
+                
+        finally:
+            session.close()
+        

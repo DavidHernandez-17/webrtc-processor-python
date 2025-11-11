@@ -297,8 +297,7 @@ class AudioProcessorTrack(MediaStreamTrack):
         """Detiene el bucle de audio."""
         self.stop_event.set()
 
-    async def _process_command(self, command):       
-        # Comandos de captura de foto
+    async def _process_command(self, command):
         if any(keyword in command for keyword in ["tomar foto", "capturar", "saca foto", "fotografía", "foto"]):
             print("📸 Comando de captura detectado.")
             
@@ -325,9 +324,12 @@ class AudioProcessorTrack(MediaStreamTrack):
         elif any(keyword in command for keyword in ["ingresar a espacio", "entrar al espacio", "abrir espacio"]):
             print("Comando 'Ingresar a espacio detectado.'")
             space_name = self.name_extractor.extract_space_name(command)
-            print("Nombre de espacio: ", space_name)
             space = self.inventory_service.enter_space(space_name)
-            await self.sio.emit("command_executed", {"action": "enter_space", "space": space})
+            try:
+                await self.sio.emit("command_executed", {"action": "enter_space", "space": space})
+                print("✅ Evento emitido correctamente")
+            except Exception as e:
+                print("❌ Error al emitir evento:", str(e))
             
         elif any(keyword in command for keyword in ["ingresar a elemento", "entrar al elemento", "abrir elemento"]):
             print("Comando 'Ingresar a elemento detectado.'")
